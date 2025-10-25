@@ -216,6 +216,12 @@ class phpipamSNMP extends Common_functions {
     	$this->snmp_queries['get_vrf_table']->oid = "MPLS-VPN-MIB::mplsVpnVrfDescription";
     	$this->snmp_queries['get_vrf_table']->description = _("Fetches VRF table");
 
+        // get interface name
+        $this->snmp_queries['get_interface_name'] = new StdClass();
+    	$this->snmp_queries['get_interface_name']->id  = 8;
+    	$this->snmp_queries['get_interface_name']->oid = "IF-MIB::ifDescr";
+    	$this->snmp_queries['get_interface_name']->description = _("Fetches interface name from connected switch for addresses");
+
     	// Text to numerical OID conversion table
     	$this->snmp_oids = [
     		'SNMPv2-MIB::sysDescr'                => '.1.3.6.1.2.1.1.1',
@@ -771,6 +777,84 @@ class phpipamSNMP extends Common_functions {
             // set value
             $r  = trim(str_replace("\"","",substr($r, strpos($r, ":")+2)));
             $res[$k] = $r;
+        }
+
+        // save result
+        $this->save_last_result ($res);
+
+        // return response
+        return isset($res) ? $res : false;
+    }
+
+    /**
+     * Fetch interface name from connected switch for address
+     *
+     * @access private
+     * @return void
+     */
+    private function get_interface_name() {
+        // init
+        $this->connection_open ();
+
+        // fetch
+        $res1 = $this->snmp_walk ( "BRIDGE-MIB::dot1dTpFdbAddress" );    // mac
+        $res2 = $this->snmp_walk ( "BRIDGE-MIB::dot1dTpFdbPort" );       // bridge port index
+
+        $res31 = $this->snmp_walk( "ciscoCdpMIB::cdpCacheCapabilities" ); // CDP Capabilites
+        $res32 = $this->snmp_walk( "ciscoCdpMIB::cdpCacheIfIndex" );      // CDP interface index
+
+        // parse MAC
+        $n=0;
+        foreach ($res1 as $r) {
+            $res[$n]['mac'] = $this->format_snmp_mac_value ($r);
+            $n++;
+        };
+
+        // check if capability of connected device is of type switch (0x8 for CDP)
+        $is_interface_switch_uplink = array();       // to discard MAC addresses connected via uplink port
+        
+        $n=0;
+        foreach ($res31 as $r) {
+            $cdp_capabilities = $this->parse_snmp_result_value ($r);
+
+            $has_switch_capabilitiy = array_any(pf_explode(".", $cdp_capabilities), fn($value, $key) => (int)$value & 0x8);
+
+            if ($has_switch_capabilitiy) {
+                $is_interface_switch_uplink[$res32[$n]] = true;
+            }
+
+            $n++;
+        };
+
+        // parse bridgeport index and fetch if description
+        $n=0;
+        foreach ($res2 as $r) {
+            $res[$n]['bridgeportindex'] = $this->parse_snmp_result_value ($r);
+
+            // fetch interface
+            try {
+                $res3 = $this->snmp_get ( "BRIDGE-MIB::dot1dBasePortIfIndex", $res[$n]['bridgeportindex'] );         // bridge port to interface index
+
+                // MAC address connected via uplink port?
+                if (array_key_exists($res3, $is_interface_switch_uplink)) {
+                    $n++;
+                    continue;
+                }
+
+                $res4 = $this->snmp_get ( "IF-MIB::ifDescr", $this->parse_snmp_result_value ($res3) );  // interface description
+                $res5 = $this->snmp_get ( "IF-MIB::ifAlias", $this->parse_snmp_result_value ($res3) );
+
+                //parse and save
+                $res[$n]['vlan_number'] = $this->vlan_number;
+                $res[$n]['port'] = $this->parse_snmp_result_value ($res4);
+                $res[$n]['port_alias'] = $this->parse_snmp_result_value ($res5);
+            }
+            catch (Exception $e) {
+                $res[$n]['port'] = "";
+                $res[$n]['error'] = $e->getMessage();
+            }
+
+            $n++;
         }
 
         // save result
