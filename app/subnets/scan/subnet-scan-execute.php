@@ -65,6 +65,7 @@ switch ($type) {
 # discovery
     case "update-icmp":
     case "update-snmp-arp":
+    case "update-snmp-switch-port":
         $csrf = $POST->csrf_cookie;
         require("subnet-scan-execute-$type.php");
         break;

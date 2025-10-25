@@ -75,6 +75,7 @@ $subnet->description = !is_blank($subnet->description) ? "(".$subnet->descriptio
 	    		<optgroup label="<?php print _('Status update scans');?>">
 		    		<option value="update-icmp"     <?php if(@$_COOKIE['scantype']=="update-icmp") print "selected"; ?>><?php print _('Status update scans');?>: Ping <?php print _('scan');?></option>
 		    		<option value="update-snmp-arp" <?php if(@$_COOKIE['scantype']=="update-snmp-arp") print "selected"; ?>><?php print _('Status update scans');?>: SNMP ARP <?php print _('scan');?></option>
+		    		<option value="update-snmp-switch-port" <?php if(@$_COOKIE['scantype']=="update-snmp-switch-port") print "selected"; ?>><?php print _('Status update scans');?>: SNMP Switch-Port name <?php print _('scan');?></option>
 	    		</optgroup>
 
 			</select>

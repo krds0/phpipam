@@ -689,6 +689,31 @@ class Scan extends Common_functions {
 	}
 
 	/**
+	 * Updates address port
+	 *
+	 * @method update_address_port
+	 * @param  int $address_id
+	 * @param  string $last_seen_date (default: false)
+	 * @param  string $port
+	 * @return void
+	 */
+	public function update_address_port ($address_id, $last_seen_date = false, $port) {
+    	# set datetime
+    	$datetime = is_null($datetime) ? date("Y-m-d H:i:s") : $datetime;
+		# execute
+		$update_ipaddress = array("id"=>$id, "lastSeen"=>$datetime);
+		if (!is_null($port)) {
+			$update_ipaddress["port"] = $port;
+		}
+		try { $this->Database->updateObject("ipaddresses", $update_ipaddress, "id"); }
+		catch (Exception $e) {
+			!$this->debugging ? : $this->Result->show("danger", $e->getMessage(), false);
+			# log
+			!$this->debugging ? : $this->Log->write (_("Address port update"), _('Failed to update port of address.'), 0 );
+		}
+	}
+
+	/**
 	 * Opens socket connection on specified TCP ports, if at least one is available host is alive
 	 *
 	 * @access public
