@@ -343,7 +343,50 @@ CREATE TABLE `devices` (
   KEY `hostname` (`hostname`),
   KEY `location` (`location`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/* insert default values */
+INSERT INTO `devices` (`id`, `hostname`, `ip_addr`)
+VALUES
+	(1,'Switch1','10.255.0.1'),
+	(2,'Switch2','10.255.0.2'),
+	(3,'Switch3','10.255.0.3');
 
+# Dump of table deviceGroups
+# ------------------------------------------------------------
+DROP TABLE IF EXISTS `deviceGroups`;
+
+CREATE TABLE `deviceGroups` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(32) DEFAULT NULL,
+  `desc` varchar(1024) DEFAULT NULL,
+  `editDate` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/* insert default values */
+INSERT INTO `deviceGroups` (`id`, `name`, `desc`)
+VALUES
+	(1,'Customer 1 Subnet 1 Switches','Switches which have a link to Subnet 1'),
+	(2,'Customer 1 Subnet 2 Switches','Switches which have a link to Subnet 2');
+
+
+# Dump of table device_to_group
+# ------------------------------------------------------------
+DROP TABLE IF EXISTS `device_to_group`;
+
+CREATE TABLE `device_to_group` (
+  `d_id` int(11) unsigned,
+  `g_id` int(11) unsigned,
+  `editDate` TIMESTAMP  NULL  ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`g_id`, `d_id`),
+  FOREIGN KEY (`d_id`) REFERENCES `devices`      (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  FOREIGN KEY (`g_id`) REFERENCES `deviceGroups` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/* insert default values */
+INSERT INTO `device_to_group` (`g_id`, `d_id`)
+VALUES
+	(1,1),
+	(1,2),
+	(2,2),
+	(2,3);
 
 # Dump of table userGroups
 # ------------------------------------------------------------
