@@ -292,6 +292,32 @@ $("input[name='subnet']").change(function() {
     </tr>
     <?php } ?>
 
+	<?php if($User->get_module_permissions ("devices")>=User::ACCESS_R) { ?>
+	<!-- Device group -->
+	<tr>
+		<td class="middle"><?php print _('Device group'); ?></td>
+		<td id="deviceDropdown">
+			<select name="deviceGroup" class="form-control input-sm input-w-auto">
+				<option value="0"><?php print _('None'); ?></option>
+				<?php
+				// fetch all device groups
+				$device_groups = $Admin->fetch_all_objects("deviceGroups", "name");
+				$device_groups = ($device_groups !== false) ? $device_groups : [];
+				
+				// loop
+				foreach($device_groups as $device_group) {
+					//check if permitted in this section!
+					//$sections = pf_explode(";", $device->sections);
+					
+					print '<option value="' . $device_group->id . (($device_group->id == @$subnet_old_details['deviceGroup']) ? '" selected>' : '">') . $device_group->name . '</option>';
+				}
+				?>
+			</select>
+		</td>
+		<td class="info2"><?php print _('Select device group where subnet is located'); ?></td>
+    </tr>
+    <?php } ?>
+
 	<!-- Nameservers -->
 	<tr>
 		<td class="middle"><?php print _('Nameservers'); ?></td>
