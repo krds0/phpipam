@@ -28,6 +28,8 @@ if ($vlan===false)                              { $Result->show("danger", _("Sub
 
 # set class
 $Snmp = new phpipamSNMP ();
+$Database 	= new Database_PDO;
+$Log = new Logging($Database);
 
 // fetch all hosts to be scanned
 $all_subnet_hosts = (array) $Addresses->fetch_subnet_addresses ($POST->subnetId);
@@ -98,8 +100,11 @@ if (sizeof($all_subnet_hosts)>0) {
                         $result[$Subnets->transform_address($r['ip'], "decimal")]['status'] = "Online";
                         $result[$Subnets->transform_address($r['ip'], "decimal")]['switch'] = $d->hostname;
                         $result[$Subnets->transform_address($r['ip'], "decimal")]['port'] = $r['port'];
+
                         // update alive time and mac address and port
-                        @$Scan->update_address_port($addr['id'], null, $d->id, $r['port']);
+                        if (@$Scan->update_address_port($addr['id'], null, $d->id, $r['port'])) {
+                            $Log->write_changelog("ip_addr", "edit", "success", $addr, $result[$Subnets->transform_address($r['ip'], "decimal")], false);
+                        }
                     }
                }
            }
@@ -116,7 +121,9 @@ if (sizeof($all_subnet_hosts)>0) {
             $result[$Subnets->transform_address($r['ip'], "decimal")]['switch'] = null;
             $result[$Subnets->transform_address($r['ip'], "decimal")]['port'] = null;
             
-            @$Scan->update_address_port_offline($addr['id']);
+            if (@$Scan->update_address_port_offline($addr['id'])) {
+                $Log->write_changelog("ip_addr", "edit", "success", $addr, $result[$Subnets->transform_address($r['ip'], "decimal")], false);
+            }
         }
     }
 }

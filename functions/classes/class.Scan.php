@@ -696,7 +696,7 @@ class Scan extends Common_functions {
 	 * @param  string $last_seen_date (default: null)
 	 * @param  string $switch
 	 * @param  string $port
-	 * @return void
+	 * @return bool
 	 */
 	public function update_address_port ($address_id, $last_seen_date = null, $switch, $port) {
     	# set datetime
@@ -706,10 +706,13 @@ class Scan extends Common_functions {
 		
 		try {
 			$this->Database->updateObject("ipaddresses", $update_ipaddress, "id");
+			return true;
 		} catch (Exception $e) {
 			!$this->debugging ? : $this->Result->show("danger", $e->getMessage(), false);
 			# log
 			!$this->debugging ? : $this->Log->write (_("Address port update"), _('Failed to update switch & port of address.'), 0 );
+
+			return false;
 		}
 	}
 
@@ -718,7 +721,7 @@ class Scan extends Common_functions {
 	 *
 	 * @method update_address_port
 	 * @param  int $address_id
-	 * @return void
+	 * @return bool
 	 */
 	public function update_address_port_offline ($address_id) {
 		# execute
@@ -726,10 +729,13 @@ class Scan extends Common_functions {
 		
 		try {
 			$this->Database->updateObject("ipaddresses", $update_ipaddress, "id");
+			return true;
 		} catch (Exception $e) {
 			!$this->debugging ? : $this->Result->show("danger", $e->getMessage(), false);
 			# log
 			!$this->debugging ? : $this->Log->write (_("Address port update"), _('Failed to update switch & port of address.'), 0 );
+
+			return false;
 		}
 	}
 
