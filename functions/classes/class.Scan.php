@@ -689,27 +689,47 @@ class Scan extends Common_functions {
 	}
 
 	/**
-	 * Updates address port
+	 * Updates address switch and port
 	 *
 	 * @method update_address_port
 	 * @param  int $address_id
-	 * @param  string $last_seen_date (default: false)
+	 * @param  string $last_seen_date (default: null)
+	 * @param  string $switch
 	 * @param  string $port
 	 * @return void
 	 */
-	public function update_address_port ($address_id, $last_seen_date = false, $port) {
+	public function update_address_port ($address_id, $last_seen_date = null, $switch, $port) {
     	# set datetime
-    	$datetime = is_null($datetime) ? date("Y-m-d H:i:s") : $datetime;
+    	$datetime = is_null($last_seen_date) ? date("Y-m-d H:i:s") : $last_seen_date;
 		# execute
-		$update_ipaddress = array("id"=>$id, "lastSeen"=>$datetime);
-		if (!is_null($port)) {
-			$update_ipaddress["port"] = $port;
-		}
-		try { $this->Database->updateObject("ipaddresses", $update_ipaddress, "id"); }
-		catch (Exception $e) {
+		$update_ipaddress = array("id" => $address_id, "lastSeen" => $last_seen_date, "switch" => $switch, "port" => $port);
+		
+		try {
+			$this->Database->updateObject("ipaddresses", $update_ipaddress, "id");
+		} catch (Exception $e) {
 			!$this->debugging ? : $this->Result->show("danger", $e->getMessage(), false);
 			# log
-			!$this->debugging ? : $this->Log->write (_("Address port update"), _('Failed to update port of address.'), 0 );
+			!$this->debugging ? : $this->Log->write (_("Address port update"), _('Failed to update switch & port of address.'), 0 );
+		}
+	}
+
+	/**
+	 * Updates address switch and port to null (offline)
+	 *
+	 * @method update_address_port
+	 * @param  int $address_id
+	 * @return void
+	 */
+	public function update_address_port_offline ($address_id) {
+		# execute
+		$update_ipaddress = array("id" => $address_id, "switch" => null, "port" => null);
+		
+		try {
+			$this->Database->updateObject("ipaddresses", $update_ipaddress, "id");
+		} catch (Exception $e) {
+			!$this->debugging ? : $this->Result->show("danger", $e->getMessage(), false);
+			# log
+			!$this->debugging ? : $this->Log->write (_("Address port update"), _('Failed to update switch & port of address.'), 0 );
 		}
 	}
 

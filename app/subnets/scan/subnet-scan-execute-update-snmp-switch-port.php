@@ -82,7 +82,7 @@ if (sizeof($all_subnet_hosts)>0) {
     // ok, we have devices, connect to each device and do query
     foreach ($permitted_devices as $d) {
         // init
-        $Snmp->set_snmp_device ($d, $subnet->vlanId);
+        $Snmp->set_snmp_device ($d, $vlan->number);
         // execute
         try {
            $res = $Snmp->get_query("get_interface_name");
@@ -92,16 +92,15 @@ if (sizeof($all_subnet_hosts)>0) {
                $debug[$d->hostname]["get_interface_name"] = $res;
                // check
                foreach ($res as $kr=>$r) {
-                   if ($Subnets->is_subnet_inside_subnet ($r['ip']."/32", $Subnets->transform_address($subnet->subnet, "dotted")."/".$subnet->mask)===true) {
-                       // must be existing
-                       if (array_key_exists($Subnets->transform_address($r['ip'], "decimal"), $result)) {
-                           // add to alive
-                           $result[$Subnets->transform_address($r['ip'], "decimal")]['code'] = 0;
-                           $result[$Subnets->transform_address($r['ip'], "decimal")]['status'] = "Online";
-                           // update alive time and mac address and port
-                           @$Scan->update_address_port($result[$Subnets->transform_address($r['ip'], "decimal")]['id'], null, $r['port']);
-                       }
-                   }
+                    if ($addr['mac'] != null && $r['mac'] != null && strtolower($addr['mac']) === strtolower($r['mac'])) {
+                        // add to alive
+                        $result[$Subnets->transform_address($r['ip'], "decimal")]['code'] = 0;
+                        $result[$Subnets->transform_address($r['ip'], "decimal")]['status'] = "Online";
+                        $result[$Subnets->transform_address($r['ip'], "decimal")]['switch'] = $d->hostname;
+                        $result[$Subnets->transform_address($r['ip'], "decimal")]['port'] = $r['port'];
+                        // update alive time and mac address and port
+                        @$Scan->update_address_port($addr['id'], null, $d->id, $r['port']);
+                    }
                }
            }
            $found[$d->id] = $res;
@@ -110,6 +109,15 @@ if (sizeof($all_subnet_hosts)>0) {
     		$Result->show("danger", "<pre>"._("Error").": ".$e."</pre>", false); ;
     		die();
     	}
+    }
+
+    foreach ($result as $addr) {
+        if ($addr['code'] === 1) {
+            $result[$Subnets->transform_address($r['ip'], "decimal")]['switch'] = null;
+            $result[$Subnets->transform_address($r['ip'], "decimal")]['port'] = null;
+            
+            @$Scan->update_address_port_offline($addr['id']);
+        }
     }
 }
 ?>
@@ -133,7 +141,8 @@ else {
 	print "	<th>"._('IP')."</th>";
 	print "	<th>"._('Description')."</th>";
 	print "	<th>"._('status')."</th>";
-	print "	<th>"._('Switch-Port')."</th>";
+	print "	<th>"._('Switch')."</th>";
+	print "	<th>"._('Port')."</th>";
 	print "</tr>";
 
 	//loop
@@ -146,7 +155,8 @@ else {
 		print "<tr class='$class'>";
 		print "	<td>".$Subnets->transform_to_dotted($r['ip_addr'])."</td>";
 		print "	<td>".$r['description']."</td>";
-		print "	<td>"._("$r[status]")."</td>";
+		print "	<td>".$r['status']."</td>";
+		print "	<td>".$r['switch']."</td>";
 		print "	<td>".$r['port']."</td>";
 
 		print "</tr>";
