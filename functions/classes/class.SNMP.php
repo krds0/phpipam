@@ -347,10 +347,10 @@ class phpipamSNMP extends Common_functions {
         $this->set_snmp_host($device->ip_addr);
         # hostname = za debugging
         $this->set_snmp_hostname($device->hostname);
-        # set community
-        $this->set_snmp_community($device->snmp_community, $vlan_number);
         # set version
         $this->set_snmp_version($device->snmp_version);
+        # set community
+        $this->set_snmp_community($device->snmp_community, $vlan_number);
         # set port
         $this->set_snmp_port($device->snmp_port);
         # set timeout
@@ -397,15 +397,15 @@ class phpipamSNMP extends Common_functions {
      * @return void
      */
     private function set_snmp_community($community, $vlan_number) {
-        if (!is_blank($community)) {
-            // vlan ?
-            if ($vlan_number !== false && is_numeric($vlan_number)) {
-                $this->snmp_community = $community . '@' . $vlan_number;
-                $this->vlan_number = $vlan_number;
-            }
-            else {
-                $this->snmp_community = $community;
-            }
+        if (is_blank($community))
+            return;
+
+        $this->snmp_community = $community;
+
+        // SNMPv3 uses context for "indexing"
+        if ($vlan_number !== false && is_numeric($vlan_number) && $snmp_version != 3) {
+            $this->snmp_community = $community . '@' . $vlan_number;
+            $this->vlan_number = $vlan_number;
         }
     }
 
@@ -459,15 +459,42 @@ class phpipamSNMP extends Common_functions {
      */
     private function set_snmpv3_security($device) {
         # only for v3
-        if($device->snmp_version == "3") {
-            $this->snmpv3_security                  = new StdClass();
-            $this->snmpv3_security->sec_level       = $device->snmp_v3_sec_level;
-            $this->snmpv3_security->auth_proto      = $device->snmp_v3_auth_protocol;
-            $this->snmpv3_security->auth_pass       = $device->snmp_v3_auth_pass;
-            $this->snmpv3_security->priv_proto      = $device->snmp_v3_priv_protocol;
-            $this->snmpv3_security->priv_pass       = $device->snmp_v3_priv_pass;
-            $this->snmpv3_security->contextName     = $device->snmp_v3_ctx_name;
-            $this->snmpv3_security->contextEngineID = $device->snmp_v3_ctx_engine_id;
+        if($device->snmp_version == 3) {
+            $this->snmpv3_security = new StdClass();
+            $this->apply_snmpv3_security($device->snmp_v3_sec_level,
+                                         $device->snmp_v3_auth_protocol,
+                                         $device->snmp_v3_auth_pass,
+                                         $device->snmp_v3_priv_protocol,
+                                         $device->snmp_v3_priv_pass,
+                                         $device->snmp_v3_ctx_name,
+                                         $device->snmp_v3_ctx_engine_id);
+        }
+    }
+
+    /**
+     * Sets parameters which are not NULL and applies SNMPv3 Security settings
+     *
+     * @access private
+     * @return void
+     */
+    private function apply_snmpv3_security($sec_level = null, $auth_protocol = null, $auth_pass = null, $priv_protocol = null, $priv_pass = null, $ctx_name = null, $ctx_engine_id = null) {
+        # only for v3
+        if($device->snmp_version == 3) {
+            $this->snmpv3_security->sec_level       = $sec_level     !== null ? $sec_level      : $this->snmpv3_security->sec_level;
+            $this->snmpv3_security->auth_proto      = $auth_proto    !== null ? $auth_proto     : $this->snmpv3_security->auth_proto;
+            $this->snmpv3_security->auth_pass       = $auth_pass     !== null ? $auth_pass      : $this->snmpv3_security->auth_pass;
+            $this->snmpv3_security->priv_proto      = $priv_protocol !== null ? $priv_protocol  : $this->snmpv3_security->priv_proto;
+            $this->snmpv3_security->priv_pass       = $priv_pass     !== null ? $priv_pass      : $this->snmpv3_security->priv_pass;
+            $this->snmpv3_security->contextName     = $ctx_name      !== null ? $ctx_name       : $this->snmpv3_security->contextName;
+            $this->snmpv3_security->contextEngineID = $ctx_engine_id !== null ? $ctx_engine_id  : $this->snmpv3_security->contextEngineId;
+
+            $this->snmp_session->setSecurity($this->snmpv3_security->sec_level,
+                                             $this->snmpv3_security->auth_proto,
+                                             $this->snmpv3_security->auth_pass,
+                                             $this->snmpv3_security->priv_proto,
+                                             $this->snmpv3_security->priv_pass,
+                                             $this->snmpv3_security->contextName,
+                                             $this->snmpv3_security->contextEngineID);
         }
     }
     
@@ -500,13 +527,7 @@ class phpipamSNMP extends Common_functions {
             }
             elseif ($this->snmp_version == "3") {
                 $this->snmp_session = new SNMP(SNMP::VERSION_3,  $host_with_port, $this->snmp_community, $this->snmp_timeout * 1000, $this->snmp_retries);
-                $this->snmp_session->setSecurity($this->snmpv3_security->sec_level,
-                                                 $this->snmpv3_security->auth_proto,
-                                                 $this->snmpv3_security->auth_pass,
-                                                 $this->snmpv3_security->priv_proto,
-                                                 $this->snmpv3_security->priv_pass,
-                                                 $this->snmpv3_security->contextName,
-                                                 $this->snmpv3_security->contextEngineID);
+                $this->apply_snmpv3_security();
             }
             else {
                 throw new Exception(_('Invalid SNMP version'));
@@ -583,9 +604,22 @@ class phpipamSNMP extends Common_functions {
         // init
         $this->connection_open();
 
+        // change context before fetching ARP-/MAC-table
+        $this->apply_snmpv3_security($device->snmp_v3_sec_level,
+                                    $device->snmp_v3_auth_protocol,
+                                    $device->snmp_v3_auth_pass,
+                                    $device->snmp_v3_priv_protocol,
+                                    $device->snmp_v3_priv_pass,
+                                    'vlan-' . $vlan_number,
+                                    $device->snmp_v3_ctx_engine_id);
+
         // fetch
         $res1 = $this->snmp_walk('IP-MIB::ipNetToMediaNetAddress');      // ip
         $res2 = $this->snmp_walk('IP-MIB::ipNetToMediaPhysAddress');     // mac
+
+        // restore context name after fetching ARP-/MAC-table
+        $this->apply_snmpv3_security();
+
         $res3 = $this->snmp_walk('IP-MIB::ipNetToMediaIfIndex');         // interface index
 
         // parse IP
@@ -651,8 +685,21 @@ class phpipamSNMP extends Common_functions {
         // init
         $this->connection_open();
 
+        // change context before fetching ARP-/MAC-table
+        $this->apply_snmpv3_security($device->snmp_v3_sec_level,
+                                    $device->snmp_v3_auth_protocol,
+                                    $device->snmp_v3_auth_pass,
+                                    $device->snmp_v3_priv_protocol,
+                                    $device->snmp_v3_priv_pass,
+                                    'vlan-' . $vlan_number,
+                                    $device->snmp_v3_ctx_engine_id);
+
         // fetch
         $res1 = $this->snmp_walk('BRIDGE-MIB::dot1dTpFdbAddress');  // mac
+
+        // restore context name after fetching ARP-/MAC-table
+        $this->apply_snmpv3_security();
+
         $res2 = $this->snmp_walk('BRIDGE-MIB::dot1dTpFdbPort');     // bridge port index
 
         // parse MAC
@@ -706,7 +753,20 @@ class phpipamSNMP extends Common_functions {
 
         // fetch
         $res1 = $this->snmp_walk('IP-MIB::ipAdEntAddr');
+
+        // change context before fetching ARP-/MAC-table
+        $this->apply_snmpv3_security($device->snmp_v3_sec_level,
+                                    $device->snmp_v3_auth_protocol,
+                                    $device->snmp_v3_auth_pass,
+                                    $device->snmp_v3_priv_protocol,
+                                    $device->snmp_v3_priv_pass,
+                                    'vlan-' . $vlan_number,
+                                    $device->snmp_v3_ctx_engine_id);
+
         $res2 = $this->snmp_walk('IP-MIB::ipNetToMediaPhysAddress');
+
+        // restore context name after fetching ARP-/MAC-table
+        $this->apply_snmpv3_security();
 
         // parse result
         $n=0;
